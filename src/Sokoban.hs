@@ -51,8 +51,8 @@ walking world = walking' [worker world] [worker world]
                     checkDown = [(x,y+1) | (x,y+1) `notElem` walls world, (x,y+1) `notElem` searched] 
                     checkLeft = [(x-1,y) | (x-1,y) `notElem` walls world, (x-1,y) `notElem` searched] 
                     checkRight = [(x+1,y) | (x+1,y) `notElem` walls world, (x+1,y) `notElem` searched] 
-                    searched' = (checkUp ++ checkDown ++ checkLeft ++ checkRight ++ searched)
-                    tocheck = (checkUp ++ checkDown ++ checkLeft ++ checkRight ++ xs)
+                    searched' = checkUp ++ checkDown ++ checkLeft ++ checkRight ++ searched
+                    tocheck = checkUp ++ checkDown ++ checkLeft ++ checkRight ++ xs
 
 emptyTiles :: World -> [Coord]
 emptyTiles world = 
@@ -89,8 +89,7 @@ followPath world path =
                            , steps = 0
                            , pushes = 0
                            , worker = startWorker world }
-        followPath' world [] = world
-        followPath' world (x:xs) = followPath' (modifyWorld world x) xs
+        followPath' = foldl modifyWorld
     in followPath' startWorld (reverse path)
 
 modifyWorld :: World -> Action -> World
@@ -105,24 +104,14 @@ modifyWorld world input = if isValid world input then go world input else world
                SUndo -> followPath world (tail (path world))
                _     ->
                        if inputcoord `elem` crates world
-                          then world { walls = walls world
-                                     , storage = storage world
-                                     , crates = inputcoord':filter (/= inputcoord) (crates world)
+                          then world { crates = inputcoord':filter (/= inputcoord) (crates world)
                                      , worker = inputcoord
-                                     , empty = empty world
-                                     , name = name world
                                      , path = input:path world
                                      , steps = steps world + 1 
                                      , pushes = pushes world + 1 }
-                          else world { walls = walls world
-                                     , storage = storage world
-                                     , crates = crates world
-                                     , worker = inputcoord
-                                     , name = name world
-                                     , empty = empty world
+                          else world { worker = inputcoord
                                      , path = input:path world
-                                     , steps = steps world + 1 
-                                     , pushes = pushes world }
+                                     , steps = steps world + 1 }
 
 
 getMaxWidth :: World -> Int
@@ -277,7 +266,7 @@ getSecond contents
 splitContents' :: String -> [String] -> [String]
 splitContents' contents strings 
     | getFirst contents /= "" =
-        [getFirst contents] ++ splitContents' (getSecond contents) strings
+        getFirst contents : splitContents' (getSecond contents) strings
     | otherwise = strings
 
 splitContents :: String -> [String]
@@ -287,7 +276,7 @@ splitContents contents =
 loadLevel :: String -> IO [World] 
 loadLevel filename = do
     contents <- readFile filename
-    contents2 <- return ( (unlines . filter (/= "") . lines) contents)
-    contentlist <- return (splitContents contents2)
+    let contents2 = (unlines . filter (/= "") . lines) contents
+    let contentlist = splitContents contents2
 
     return (map buildLevel contentlist)

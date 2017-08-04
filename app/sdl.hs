@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
+-- TODO: getBoundary zu Schriftdarstellungsfunktion ausweiten
+
 module Main where
 
 import SDL 
@@ -191,21 +194,26 @@ drawGame renderer tiles font world =  do
       let stepstr = Text.pack $ "Moves: " ++ show (steps world) ++ " Pushes: " ++ show (pushes world)
       surf <- Font.solid font (V4 128 128 128 255) stepstr
       text <- createTextureFromSurface renderer surf
-      tInfo <- queryTexture text
-      let w = textureWidth tInfo
-      let h = textureHeight tInfo
+      (w, h) <- getBoundary text
+      --tInfo <- queryTexture text
+      --let w = textureWidth tInfo
+      --let h = textureHeight tInfo
       SDL.copy renderer text Nothing (Just (Rectangle (P (V2 0 0)) (V2 w h)))
       SDL.freeSurface surf
       SDL.destroyTexture text
       --levelPathHandler $ baseDir `Text.append` x `Text.append` fileExt
 
+
+getBoundary :: SDL.Texture -> IO (CInt, CInt)
+getBoundary text = do 
+    tInfo <- queryTexture text
+    return (textureWidth tInfo, textureHeight tInfo)
+
 loadWorld :: RBF.Handler (World -> World) -> ([World], Int) -> IO ()
 loadWorld fireLoadWorld (worlds,pos) = fireLoadWorld (const (worlds !! pos))
 
 checkFinished :: RBF.Handler () -> World -> IO ()
-checkFinished fireFinished world = if isFinished world
-                                      then fireFinished ()
-                                      else return ()
+checkFinished fireFinished world = when (isFinished world) $ fireFinished ()
 
 main :: IO ()
 main = do
@@ -231,13 +239,13 @@ main = do
   runCappedSDLPump fps eventsource
     where
       loadTextures renderer = do
-        workDocked <- Image.load "/home/ross/coding/sokoban/data/tiles/worker-docked.png"
-        work <- Image.load "/home/ross/coding/sokoban/data/tiles/worker.png"
-        empt <- Image.load "/home/ross/coding/sokoban/data/tiles/floor.png"
-        wall <- Image.load "/home/ross/coding/sokoban/data/tiles/wall.png"
-        box <- Image.load "/home/ross/coding/sokoban/data/tiles/box.png"
-        boxDocked <- Image.load "/home/ross/coding/sokoban/data/tiles/box-docked.png"
-        dock <- Image.load "/home/ross/coding/sokoban/data/tiles/dock.png"
+        workDocked <- Image.load "data/tiles/worker-docked.png"
+        work <- Image.load "data/tiles/worker.png"
+        empt <- Image.load "data/tiles/floor.png"
+        wall <- Image.load "data/tiles/wall.png"
+        box <- Image.load "data/tiles/box.png"
+        boxDocked <- Image.load "data/tiles/box-docked.png"
+        dock <- Image.load "data/tiles/dock.png"
 
         textWorkDocked <- createTextureFromSurface renderer workDocked
         textWork <- createTextureFromSurface renderer work
@@ -246,13 +254,13 @@ main = do
         textBox <- createTextureFromSurface renderer box
         textBoxDocked <- createTextureFromSurface renderer boxDocked
         textDock <- createTextureFromSurface renderer dock
-        return $ Tiles { work = textWork
-                       , workDocked = textWorkDocked
-                       , empt = textEmpt
-                       , wall = textWall
-                       , box = textBox
-                       , boxDocked = textBoxDocked
-                       , dock = textDock } 
+        return Tiles { work = textWork
+                     , workDocked = textWorkDocked
+                     , empt = textEmpt
+                     , wall = textWall
+                     , box = textBox
+                     , boxDocked = textBoxDocked
+                     , dock = textDock }
 
 
 pos :: Point V2 CInt
@@ -266,7 +274,7 @@ loadWorldList fireWorldList filename = do
   case result of
     Left ex -> wrongFileError ex
     Right worlds -> fireWorldList worlds
-  where wrongFileError ex = print ex
+  where wrongFileError = print 
 
 drawWorlds :: Renderer -> RBF.Handler Int -> ([World], Int) -> IO ()
 drawWorlds renderer maxPosHandler (worlds, position) = do
@@ -279,48 +287,40 @@ drawWorlds renderer maxPosHandler (worlds, position) = do
       go font (x:xs) p 0 = do
         surf <- Font.solid font (V4 128 128 128 255) x
         text <- createTextureFromSurface renderer surf
-        tInfo <- queryTexture text
-        let w = textureWidth tInfo
-        let h = textureHeight tInfo
+        (w, h) <- getBoundary text
         SDL.copy renderer text Nothing (Just (Rectangle (P (V2 0 p)) (V2 w h)))
         go font xs (p+h) (-1)
       go font (x:xs) p i = do
         surf <- Font.solid font (V4 255 255 255 255) x
         text <- createTextureFromSurface renderer surf
-        tInfo <- queryTexture text
-        let w = textureWidth tInfo
-        let h = textureHeight tInfo
+        (w, h) <- getBoundary text
         SDL.copy renderer text Nothing (Just (Rectangle (P (V2 0 p)) (V2 w h)))
         go font xs (p+h) (i-1)
 
 drawMenu :: Renderer -> RBF.Handler Int -> RBF.Handler Text.Text -> Int -> IO ()
 drawMenu renderer maxPosHandler levelPathHandler position = do
   clear renderer
-  filesTemp <- listDirectory "/home/ross/coding/sokoban/data/levels/"
+  filesTemp <- listDirectory "data/levels/"
   let files = map (Text.pack . takeBaseName ) filesTemp
   maxPosHandler $ length files - 1
   font <- Font.load "/usr/share/fonts/TTF/DejaVuSans.ttf" fontSize
   drawFiles font files 0 (toEnum position)
     where
-      baseDir = Text.pack "/home/ross/coding/sokoban/data/levels/"
+      baseDir = Text.pack "data/levels/"
       fileExt = Text.pack ".txt"
       drawFiles :: Font.Font -> [Text.Text] -> CInt -> CInt -> IO ()
       drawFiles _ [] _ _ = pure ()
       drawFiles font (x:xs) p 0 = do
         surf <- Font.solid font (V4 128 128 128 255) x
         text <- createTextureFromSurface renderer surf
-        tInfo <- queryTexture text
-        let w = textureWidth tInfo
-        let h = textureHeight tInfo
+        (w, h) <- getBoundary text
         SDL.copy renderer text Nothing (Just (Rectangle (P (V2 0 p)) (V2 w h)))
         levelPathHandler $ baseDir `Text.append` x `Text.append` fileExt
         drawFiles font xs (p+h) (-1)
       drawFiles font (x:xs) p i = do
         surf <- Font.solid font (V4 255 255 255 255) x
         text <- createTextureFromSurface renderer surf
-        tInfo <- queryTexture text
-        let w = textureWidth tInfo
-        let h = textureHeight tInfo
+        (w, h) <- getBoundary text
         SDL.copy renderer text Nothing (Just (Rectangle (P (V2 0 p)) (V2 w h)))
         drawFiles font xs (p+h) (i-1)
 
