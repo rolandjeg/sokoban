@@ -70,6 +70,7 @@ data Control = Control { eQuit :: RBC.Event Keysym
                        , eUp :: RBC.Event Keysym
                        , eDown :: RBC.Event Keysym
                        , eUndo :: RBC.Event Keysym
+                       , eReset :: RBC.Event Keysym
                        , eEnter :: RBC.Event Keysym }
 
 controls :: SDLEventSource -> MomentIO Control
@@ -83,6 +84,7 @@ controls eventsource = mdo
                  , eUp = filterE (\a -> keysymKeycode a == SDL.KeycodeK ) (keyDownEvent esdl)
                  , eDown = filterE (\a -> keysymKeycode a == SDL.KeycodeJ ) (keyDownEvent esdl)
                  , eUndo = filterE (\a -> keysymKeycode a == SDL.KeycodeU ) (keyDownEvent esdl)
+                 , eReset = filterE (\a -> keysymKeycode a == bindings "reset" ) (keyDownEvent esdl)
                  , eEnter = filterE (\a -> keysymKeycode a == SDL.KeycodeReturn ) (keyDownEvent esdl) }
 
 networkDescription :: SDLEventSource -> Renderer -> Tiles -> Font.Font -> MomentIO ()
@@ -143,6 +145,7 @@ networkDescription eventsource renderer tiles font = mdo
                                        , flip modifyWorld SRight <$ whenE bGame (eRight control)
                                        , flip modifyWorld SUp <$ whenE bGame (eUp control)
                                        , flip modifyWorld SDown <$ whenE bGame (eDown control)
+                                       , flip modifyWorld SReset <$ whenE bGame (eReset control)
                                        , flip modifyWorld SUndo <$ whenE bGame (eUndo control)  ]
 
   let bTest = (,) <$> bWorldList <*> bMenuPos
@@ -165,7 +168,8 @@ networkDescription eventsource renderer tiles font = mdo
   reactimate $ present renderer <$ etick
 
 drawFinished :: Renderer -> IO ()
-drawFinished = clear
+drawFinished = do 
+    clear
 
 drawGame :: Renderer -> Tiles -> Font.Font -> World -> IO ()
 drawGame renderer tiles font world =  do

@@ -37,6 +37,7 @@ data Action = SUp
             | SLeft 
             | SRight
             | SUndo
+            | SReset
            deriving (Show, Eq, Ord)
 
 walking :: World -> [Coord]
@@ -59,6 +60,19 @@ emptyTiles world =
     [x | x <- reachableTiles world , x `notElem` (walls world ++ storage world)]
         where reachableTiles = walking
 
+actionToString :: Action -> String
+actionToString SUp = "Up"
+actionToString SDown = "Down"
+actionToString SLeft = "Left"
+actionToString SRight = "Right"
+actionToString _ = "FAIL"
+
+pathToString :: World -> String
+pathToString world = go (path world)
+  where
+    go [] = "\n"
+    go (x:xs) = actionToString x ++ "\n" ++ go xs
+
 applyInput :: Coord -> Action-> Coord
 applyInput (x,y) SUp    = (x   , y-1)
 applyInput (x,y) SLeft  = (x-1 , y)
@@ -76,6 +90,7 @@ isValid :: World -> Action -> Bool
 isValid world input
         | input == SUndo && steps world > 0 = True
         | input == SUndo && steps world <= 0 = False
+        | input == SReset = True
         | isWall world newpos = False
         | isCrate world newpos = not (isWall world newpos' || isCrate world newpos')
         | otherwise = True
@@ -102,6 +117,7 @@ modifyWorld world input = if isValid world input then go world input else world
              in
              case input of
                SUndo -> followPath world (tail (path world))
+               SReset -> followPath world []
                _     ->
                        if inputcoord `elem` crates world
                           then world { crates = inputcoord':filter (/= inputcoord) (crates world)
